@@ -5,126 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Каталог - Магазин</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: #f5f5f5;
-            padding: 16px;
-        }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 16px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .header h1 {
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-        .header p {
-            font-size: 14px;
-            opacity: 0.9;
-        }
-        .refresh-btn {
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 12px;
-            margin-top: 10px;
-        }
-        .products-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-        }
-        .product-card {
-            background: white;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            text-decoration: none;
-            color: inherit;
-            display: block;
-        }
-        .product-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-        }
-        .product-image {
-            width: 100%;
-            height: 160px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 48px;
-            color: white;
-            object-fit: cover;
-        }
-        .product-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .product-info {
-            padding: 12px;
-        }
-        .product-name {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 6px;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        .product-price {
-            font-size: 16px;
-            font-weight: 700;
-            color: #e74c3c;
-        }
-        .product-old-price {
-            font-size: 11px;
-            color: #999;
-            text-decoration: line-through;
-            margin-left: 6px;
-            font-weight: normal;
-        }
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-            grid-column: span 2;
-        }
-        .error {
-            text-align: center;
-            padding: 40px;
-            color: #e74c3c;
-            grid-column: span 2;
-        }
-        @media (max-width: 480px) {
-            .product-image {
-                height: 140px;
-            }
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f5f5f5; padding: 16px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 16px; margin-bottom: 20px; text-align: center; }
+        .header h1 { font-size: 24px; margin-bottom: 5px; }
+        .products-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        .product-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s; text-decoration: none; color: inherit; display: block; }
+        .product-card:hover { transform: translateY(-4px); }
+        .product-image { width: 100%; height: 160px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; font-size: 48px; color: white; }
+        .product-info { padding: 12px; }
+        .product-name { font-size: 14px; font-weight: 600; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .product-price { font-size: 16px; font-weight: 700; color: #e74c3c; }
+        .product-old-price { font-size: 11px; color: #999; text-decoration: line-through; margin-left: 6px; font-weight: normal; }
+        .loading, .error { text-align: center; padding: 40px; color: #666; grid-column: span 2; }
+        .error { color: #e74c3c; }
+        @media (max-width: 480px) { .product-image { height: 140px; } }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🛍 МАГАЗИН</h1>
         <p>Лучшие товары по лучшим ценам</p>
-        <button class="refresh-btn" onclick="loadProducts(true)">🔄 Обновить</button>
     </div>
     <div id="products" class="products-grid">
         <div class="loading">Загрузка товаров...</div>
@@ -138,105 +39,44 @@
         
         let products = [];
         
-        async function loadProducts(showMessage = false) {
-            const container = document.getElementById('products');
-            container.innerHTML = '<div class="loading">Загрузка товаров...</div>';
-            
+        async function loadProducts() {
             try {
-                // Получаем данные из API вашего сервера
-                const apiUrl = window.location.origin + '/api/products';
-                const response = await fetch(apiUrl);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                
+                const response = await fetch('products.json?t=' + Date.now());
+                if (!response.ok) throw new Error('Файл products.json не найден');
                 products = await response.json();
-                
-                if (showMessage) {
-                    tg.showPopup({
-                        title: 'Обновлено',
-                        message: `Загружено ${products.length} товаров`,
-                        buttons: [{type: 'ok'}]
-                    });
-                }
-                
                 renderProducts();
             } catch (error) {
-                console.error('Ошибка загрузки:', error);
-                container.innerHTML = `
-                    <div class="error">
-                        ❌ Ошибка загрузки товаров<br>
-                        <small>${error.message}</small><br><br>
-                        Убедитесь, что сервер запущен (порт 8080)
-                    </div>
-                `;
+                document.getElementById('products').innerHTML = `<div class="error">❌ Ошибка загрузки товаров<br><small>${error.message}</small></div>`;
             }
         }
         
         function renderProducts() {
             const container = document.getElementById('products');
-            
             if (!products || products.length === 0) {
                 container.innerHTML = '<div class="error">😕 Товары временно недоступны</div>';
                 return;
             }
-            
             container.innerHTML = '';
-            
             products.forEach(product => {
                 const card = document.createElement('a');
                 card.className = 'product-card';
                 card.href = `product.html?id=${product.id}`;
-                card.onclick = (e) => {
-                    e.preventDefault();
-                    tg.openLink(`product.html?id=${product.id}`);
-                };
-                
-                // Фото
-                let imageHtml = '<div class="product-image">📦</div>';
-                if (product.photos && product.photos.length > 0) {
-                    imageHtml = `<div class="product-image"><img src="${product.photos[0]}" alt="${product.name}"></div>`;
-                }
-                
-                // Цена со скидкой
+                card.onclick = (e) => { e.preventDefault(); tg.openLink(`product.html?id=${product.id}`); };
                 let priceHtml = `<span class="product-price">${product.price} ₽</span>`;
                 if (product.old_price && product.old_price > product.price) {
-                    priceHtml = `<span class="product-price">${product.price} ₽</span>
-                                <span class="product-old-price">${product.old_price} ₽</span>`;
+                    priceHtml = `<span class="product-price">${product.price} ₽</span><span class="product-old-price">${product.old_price} ₽</span>`;
                 }
-                
-                card.innerHTML = `
-                    ${imageHtml}
-                    <div class="product-info">
-                        <div class="product-name">${escapeHtml(product.name)}</div>
-                        <div>${priceHtml}</div>
-                    </div>
-                `;
-                
+                card.innerHTML = `<div class="product-image">📦</div><div class="product-info"><div class="product-name">${escapeHtml(product.name)}</div><div>${priceHtml}</div></div>`;
                 container.appendChild(card);
             });
         }
         
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+        function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
         
-        // Загружаем товары при открытии
         loadProducts();
         
-        // Настраиваем главную кнопку
         tg.MainButton.setText("🛒 КОРЗИНА");
-        tg.MainButton.onClick(() => {
-            tg.showPopup({
-                title: 'Корзина',
-                message: 'Нажмите на товар, чтобы добавить в корзину',
-                buttons: [{type: 'ok'}]
-            });
-        });
+        tg.MainButton.onClick(() => { tg.showPopup({ title: 'Корзина', message: 'Нажмите на товар, чтобы добавить в корзину', buttons: [{type: 'ok'}] }); });
         tg.MainButton.show();
     </script>
 </body>
