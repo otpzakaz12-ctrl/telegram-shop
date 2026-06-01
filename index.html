@@ -85,6 +85,18 @@
             margin-left: 6px;
             font-weight: normal;
         }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            grid-column: span 2;
+        }
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #e74c3c;
+            grid-column: span 2;
+        }
         @media (max-width: 480px) {
             .product-image {
                 height: 140px;
@@ -97,7 +109,9 @@
         <h1>🛍 МАГАЗИН</h1>
         <p>Лучшие товары по лучшим ценам</p>
     </div>
-    <div id="products" class="products-grid"></div>
+    <div id="products" class="products-grid">
+        <div class="loading">Загрузка товаров...</div>
+    </div>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
@@ -105,19 +119,35 @@
         tg.expand();
         tg.enableClosingConfirmation();
         
-        // ТОВАРЫ (ДОБАВЬТЕ ВАШИ ТОВАРЫ СЮДА)
-        const products = [
-            { id: 1, name: "Кроссовки Nike Air Max", price: 4990, old_price: 5990, desc: "Спортивные кроссовки с дышащим материалом. Размеры: 36-45" },
-            { id: 2, name: "Футболка Adidas Originals", price: 1990, old_price: 2990, desc: "Хлопковая футболка с принтом. Размеры: S-XXL" },
-            { id: 3, name: "Рюкзак Puma Essential", price: 3490, old_price: 0, desc: "Водонепроницаемый рюкзак, 20 литров" },
-            { id: 4, name: "Часы Casio Classic", price: 2990, old_price: 3990, desc: "Классические наручные часы с хронографом" },
-            { id: 5, name: "Шапка Nike Therma", price: 1490, old_price: 0, desc: "Тёплая шапка с технологией сохранения тепла" },
-            { id: 6, name: "Носки Adidas 3 пары", price: 590, old_price: 990, desc: "Спортивные носки, дышащий материал" }
-        ];
+        let products = [];
         
-        const container = document.getElementById('products');
+        async function loadProducts() {
+            try {
+                const response = await fetch('products.json');
+                if (!response.ok) {
+                    throw new Error('Файл products.json не найден');
+                }
+                products = await response.json();
+                renderProducts();
+            } catch (error) {
+                console.error('Ошибка загрузки:', error);
+                document.getElementById('products').innerHTML = `
+                    <div class="error">
+                        ❌ Ошибка загрузки товаров<br>
+                        <small>Файл products.json не найден. Нажмите "Экспорт в JSON" в админ-панели.</small>
+                    </div>
+                `;
+            }
+        }
         
         function renderProducts() {
+            const container = document.getElementById('products');
+            
+            if (!products || products.length === 0) {
+                container.innerHTML = '<div class="error">😕 Товары временно недоступны</div>';
+                return;
+            }
+            
             container.innerHTML = '';
             
             products.forEach(product => {
@@ -139,7 +169,7 @@
                 card.innerHTML = `
                     <div class="product-image">📦</div>
                     <div class="product-info">
-                        <div class="product-name">${product.name}</div>
+                        <div class="product-name">${escapeHtml(product.name)}</div>
                         <div>${priceHtml}</div>
                     </div>
                 `;
@@ -148,14 +178,20 @@
             });
         }
         
-        renderProducts();
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        loadProducts();
         
         // Настраиваем главную кнопку
         tg.MainButton.setText("🛒 КОРЗИНА");
         tg.MainButton.onClick(() => {
             tg.showPopup({
                 title: 'Корзина',
-                message: 'Добавьте товар в корзину через карточку товара',
+                message: 'Нажмите на товар, чтобы добавить в корзину',
                 buttons: [{type: 'ok'}]
             });
         });
