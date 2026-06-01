@@ -23,6 +23,12 @@
             justify-content: center;
             font-size: 80px;
             color: white;
+            object-fit: cover;
+        }
+        .product-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         .product-info {
             padding: 20px;
@@ -117,67 +123,66 @@
         
         async function loadProduct() {
             try {
-                const response = await fetch('products.json');
-                if (!response.ok) {
-                    throw new Error('Файл products.json не найден');
-                }
-                const products = await response.json();
-                currentProduct = products.find(p => p.id == productId);
+                const apiUrl = window.location.origin + `/api/product/${productId}`;
+                const response = await fetch(apiUrl);
                 
-                if (currentProduct) {
-                    renderProduct(currentProduct);
-                } else {
-                    document.getElementById('content').innerHTML = `
-                        <div class="product-image">❌</div>
-                        <div class="product-info">
-                            <h1 class="product-name">Товар не найден</h1>
-                            <a class="back-btn" href="#" onclick="tg.openLink('/'); return false;">◀️ Назад к товарам</a>
-                        </div>
-                    `;
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
                 }
+                
+                currentProduct = await response.json();
+                renderProduct();
             } catch (error) {
                 console.error('Ошибка загрузки:', error);
                 document.getElementById('content').innerHTML = `
                     <div class="product-image">❌</div>
                     <div class="product-info">
                         <h1 class="product-name">Ошибка загрузки</h1>
-                        <div class="product-desc">Не удалось загрузить данные о товаре</div>
+                        <div class="product-desc">${error.message}</div>
                         <a class="back-btn" href="#" onclick="tg.openLink('/'); return false;">◀️ Назад к товарам</a>
                     </div>
                 `;
             }
         }
         
-        function renderProduct(product) {
-            // Формируем цену со скидкой
-            let priceHtml = `<span class="product-price">${product.price} ₽</span>`;
-            if (product.old_price && product.old_price > product.price) {
-                priceHtml = `<span class="product-price">${product.price} ₽</span>
-                            <span class="product-old-price">${product.old_price} ₽</span>`;
+        function renderProduct() {
+            if (!currentProduct) return;
+            
+            // Фото
+            let imageHtml = '<div class="product-image">📦</div>';
+            if (currentProduct.photos && currentProduct.photos.length > 0) {
+                imageHtml = `<div class="product-image"><img src="${currentProduct.photos[0]}" alt="${currentProduct.name}"></div>`;
+            }
+            
+            // Цена со скидкой
+            let priceHtml = `<span class="product-price">${currentProduct.price} ₽</span>`;
+            if (currentProduct.old_price && currentProduct.old_price > currentProduct.price) {
+                priceHtml = `<span class="product-price">${currentProduct.price} ₽</span>
+                            <span class="product-old-price">${currentProduct.old_price} ₽</span>`;
             }
             
             // Наличие
             let stockHtml = '';
-            if (product.stock > 0) {
-                stockHtml = `<div class="product-stock">✅ В наличии: ${product.stock} шт.</div>`;
+            if (currentProduct.stock > 0) {
+                stockHtml = `<div class="product-stock">✅ В наличии: ${currentProduct.stock} шт.</div>`;
             } else {
                 stockHtml = `<div class="product-stock" style="color: #e74c3c;">❌ Нет в наличии</div>`;
             }
             
             // Категория
             let categoryHtml = '';
-            if (product.category && product.category !== 'Без категории') {
-                categoryHtml = `<div class="product-category">📁 ${product.category}</div>`;
+            if (currentProduct.category && currentProduct.category !== 'Без категории') {
+                categoryHtml = `<div class="product-category">📁 ${currentProduct.category}</div>`;
             }
             
             document.getElementById('content').innerHTML = `
-                <div class="product-image">📦</div>
+                ${imageHtml}
                 <div class="product-info">
-                    <h1 class="product-name">${escapeHtml(product.name)}</h1>
+                    <h1 class="product-name">${escapeHtml(currentProduct.name)}</h1>
                     <div>${priceHtml}</div>
                     ${stockHtml}
                     ${categoryHtml}
-                    <div class="product-desc">${escapeHtml(product.description)}</div>
+                    <div class="product-desc">${escapeHtml(currentProduct.description)}</div>
                     <button class="add-to-cart" onclick="addToCart()">🛒 Добавить в корзину</button>
                     <a class="back-btn" href="#" onclick="tg.openLink('/'); return false;">◀️ Назад к товарам</a>
                 </div>
@@ -193,6 +198,7 @@
         }
         
         function escapeHtml(text) {
+            if (!text) return '';
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
