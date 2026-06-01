@@ -2,19 +2,44 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>Товар - Магазин</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background: #f5f5f5;
+            overflow-x: hidden;
         }
-        .product-image {
+        /* Карусель фото */
+        .carousel-container {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            background: #000;
+        }
+        .carousel-track {
+            display: flex;
+            transition: transform 0.3s ease-out;
+            touch-action: pan-y pinch-zoom;
+        }
+        .carousel-slide {
+            flex-shrink: 0;
+            width: 100%;
+        }
+        .carousel-slide img {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+            display: block;
+            pointer-events: none;
+        }
+        .carousel-slide .no-image {
             width: 100%;
             height: 300px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -23,18 +48,64 @@
             justify-content: center;
             font-size: 80px;
             color: white;
-            overflow: hidden;
         }
-        .product-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        /* Кнопки навигации */
+        .carousel-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            font-size: 24px;
+            color: white;
+            transition: background 0.2s;
         }
+        .carousel-btn:active {
+            background: rgba(0,0,0,0.8);
+        }
+        .carousel-btn.prev {
+            left: 10px;
+        }
+        .carousel-btn.next {
+            right: 10px;
+        }
+        /* Индикаторы */
+        .carousel-dots {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            z-index: 10;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.5);
+            transition: all 0.2s;
+        }
+        .dot.active {
+            width: 20px;
+            border-radius: 4px;
+            background: white;
+        }
+        /* Информация о товаре */
         .product-info {
             padding: 20px;
             background: white;
             border-radius: 20px 20px 0 0;
             margin-top: -20px;
+            position: relative;
         }
         .product-name {
             font-size: 24px;
@@ -77,26 +148,6 @@
             padding-bottom: 20px;
             border-bottom: 1px solid #eee;
         }
-        .photo-gallery {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            overflow-x: auto;
-            padding: 10px 0;
-        }
-        .photo-thumb {
-            width: 80px;
-            height: 80px;
-            border-radius: 10px;
-            object-fit: cover;
-            cursor: pointer;
-            border: 2px solid #ddd;
-            transition: transform 0.2s;
-        }
-        .photo-thumb:hover {
-            transform: scale(1.05);
-            border-color: #667eea;
-        }
         .add-to-cart {
             width: 100%;
             padding: 16px;
@@ -123,9 +174,9 @@
             border-radius: 12px;
             font-size: 14px;
             font-weight: 600;
-            margin-top: 20px;
+            margin-top: 10px;
         }
-        .back-btn:hover {
+        .back-btn:active {
             background: #5a67d8;
         }
         .loading, .error {
@@ -135,6 +186,18 @@
         }
         .error {
             color: #e74c3c;
+        }
+        /* Счетчик фото */
+        .photo-counter {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 10;
         }
     </style>
 </head>
@@ -151,10 +214,12 @@
         const productId = urlParams.get('id');
         let products = [];
         let currentProduct = null;
+        let currentPhotoIndex = 0;
+        let startX = 0;
+        let isDragging = false;
         
         async function loadProduct() {
             try {
-                // Получаем текущий URL для правильного формирования путей
                 const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
                 const response = await fetch(baseUrl + 'products.json?t=' + Date.now());
                 if (!response.ok) throw new Error('products.json не найден');
@@ -174,57 +239,149 @@
         
         function renderProduct() {
             const inStock = currentProduct.stock > 0;
+            const photos = currentProduct.photos || [];
+            const totalPhotos = photos.length;
             
             let priceHtml = `<span class="product-price">${currentProduct.price} ₽</span>`;
             if (currentProduct.old_price && currentProduct.old_price > currentProduct.price) {
                 priceHtml = `<span class="product-price">${currentProduct.price} ₽</span><span class="product-old-price">${currentProduct.old_price} ₽</span>`;
             }
             
-            // Галерея фото
-            let galleryHtml = '';
-            if (currentProduct.photos && currentProduct.photos.length > 0) {
-                galleryHtml = `<div class="photo-gallery">`;
-                for (let i = 0; i < Math.min(currentProduct.photos.length, 5); i++) {
-                    galleryHtml += `<img class="photo-thumb" src="${currentProduct.photos[i]}" alt="Фото ${i+1}" onclick="showFullPhoto(${i})">`;
+            // Генерируем слайды карусели
+            let slidesHtml = '';
+            if (totalPhotos > 0) {
+                for (let i = 0; i < totalPhotos; i++) {
+                    slidesHtml += `
+                        <div class="carousel-slide">
+                            <img src="${photos[i]}" alt="Фото ${i+1}" loading="lazy">
+                        </div>
+                    `;
                 }
-                galleryHtml += `</div>`;
+            } else {
+                slidesHtml = `
+                    <div class="carousel-slide">
+                        <div class="no-image">📦</div>
+                    </div>
+                `;
             }
             
-            // Основное фото
-            let mainPhotoHtml = '<div class="product-image">📦</div>';
-            if (currentProduct.photos && currentProduct.photos.length > 0) {
-                mainPhotoHtml = `<div class="product-image"><img id="mainPhoto" src="${currentProduct.photos[0]}" alt="${currentProduct.name}" onerror="this.parentElement.innerHTML='📦';this.parentElement.style.fontSize='80px';this.parentElement.style.display='flex';this.parentElement.style.alignItems='center';this.parentElement.style.justifyContent='center'"></div>`;
+            // Индикаторы
+            let dotsHtml = '';
+            for (let i = 0; i < Math.max(totalPhotos, 1); i++) {
+                dotsHtml += `<div class="dot ${i === 0 ? 'active' : ''}" data-index="${i}"></div>`;
             }
             
             document.getElementById('content').innerHTML = `
-                ${mainPhotoHtml}
+                <div class="carousel-container" style="position: relative;">
+                    <div class="carousel-track" id="carouselTrack">
+                        ${slidesHtml}
+                    </div>
+                    ${totalPhotos > 1 ? `
+                        <div class="carousel-btn prev" id="prevBtn">‹</div>
+                        <div class="carousel-btn next" id="nextBtn">›</div>
+                        <div class="carousel-dots" id="carouselDots">${dotsHtml}</div>
+                        <div class="photo-counter" id="photoCounter">1 / ${totalPhotos}</div>
+                    ` : ''}
+                </div>
                 <div class="product-info">
                     <h1 class="product-name">${escapeHtml(currentProduct.name)}</h1>
                     <div>${priceHtml}</div>
                     <div class="product-stock ${inStock ? 'in-stock' : 'out-of-stock'}">${inStock ? `✅ В наличии: ${currentProduct.stock} шт.` : '❌ Нет в наличии'}</div>
                     <div class="product-category">📁 ${escapeHtml(currentProduct.category)}</div>
                     <div class="product-desc">${escapeHtml(currentProduct.description)}</div>
-                    ${galleryHtml}
                     <button class="add-to-cart ${!inStock ? 'disabled' : ''}" ${!inStock ? 'disabled' : ''} onclick="addToCart()">🛒 Добавить в корзину</button>
                     <button class="back-btn" onclick="goBack()">◀️ Назад к товарам</button>
                 </div>
             `;
+            
+            if (totalPhotos > 1) {
+                initCarousel(totalPhotos);
+            }
+        }
+        
+        function initCarousel(totalPhotos) {
+            const track = document.getElementById('carouselTrack');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const dots = document.querySelectorAll('.dot');
+            const counter = document.getElementById('photoCounter');
+            
+            function updateCarousel() {
+                const slideWidth = track.parentElement.clientWidth;
+                track.style.transform = `translateX(-${currentPhotoIndex * slideWidth}px)`;
+                
+                // Обновляем индикаторы
+                dots.forEach((dot, i) => {
+                    dot.classList.toggle('active', i === currentPhotoIndex);
+                });
+                
+                // Обновляем счетчик
+                if (counter) {
+                    counter.textContent = `${currentPhotoIndex + 1} / ${totalPhotos}`;
+                }
+            }
+            
+            function nextPhoto() {
+                if (currentPhotoIndex < totalPhotos - 1) {
+                    currentPhotoIndex++;
+                    updateCarousel();
+                }
+            }
+            
+            function prevPhoto() {
+                if (currentPhotoIndex > 0) {
+                    currentPhotoIndex--;
+                    updateCarousel();
+                }
+            }
+            
+            // Обработчики кнопок
+            prevBtn.addEventListener('click', prevPhoto);
+            nextBtn.addEventListener('click', nextPhoto);
+            
+            // Обработчики для точек
+            dots.forEach((dot, i) => {
+                dot.addEventListener('click', () => {
+                    currentPhotoIndex = i;
+                    updateCarousel();
+                });
+            });
+            
+            // Свайп для телефона
+            let startX = 0;
+            track.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+                isDragging = true;
+            });
+            
+            track.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                const diff = e.touches[0].clientX - startX;
+                if (Math.abs(diff) > 50) {
+                    if (diff > 0) {
+                        prevPhoto();
+                    } else {
+                        nextPhoto();
+                    }
+                    isDragging = false;
+                }
+            });
+            
+            track.addEventListener('touchend', () => {
+                isDragging = false;
+            });
+            
+            // Обновляем при изменении размера окна
+            window.addEventListener('resize', () => {
+                updateCarousel();
+            });
+            
+            updateCarousel();
         }
         
         function goBack() {
-            // Закрываем текущее окно и открываем главную страницу
+            // Закрываем Web App и возвращаемся в чат
             tg.close();
-            // Альтернатива: открыть index.html
-            // tg.openLink(window.location.origin + '/');
-        }
-        
-        function showFullPhoto(index) {
-            if (currentProduct && currentProduct.photos && currentProduct.photos[index]) {
-                const mainPhoto = document.getElementById('mainPhoto');
-                if (mainPhoto) {
-                    mainPhoto.src = currentProduct.photos[index];
-                }
-            }
         }
         
         function addToCart() {
