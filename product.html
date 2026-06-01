@@ -53,6 +53,11 @@
             color: #27ae60;
             margin-bottom: 15px;
         }
+        .product-category {
+            font-size: 14px;
+            color: #8b5cf6;
+            margin-bottom: 10px;
+        }
         .product-desc {
             font-size: 15px;
             color: #666;
@@ -72,6 +77,10 @@
             font-weight: 600;
             cursor: pointer;
             margin-bottom: 10px;
+            transition: background 0.2s;
+        }
+        .add-to-cart:hover {
+            background: #5a67d8;
         }
         .back-btn {
             display: block;
@@ -80,10 +89,20 @@
             text-decoration: none;
             font-size: 14px;
         }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+        .error {
+            text-align: center;
+            padding: 50px;
+            color: #e74c3c;
+        }
     </style>
 </head>
 <body>
-    <div id="content">Загрузка...</div>
+    <div id="content" class="loading">Загрузка товара...</div>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
@@ -94,19 +113,42 @@
         const urlParams = new URLSearchParams(window.location.search);
         const productId = urlParams.get('id');
         
-        // База товаров (должна совпадать с index.html)
-        const products = {
-            1: { name: "Кроссовки Nike Air Max", price: 4990, old_price: 5990, desc: "Спортивные кроссовки с дышащим материалом и амортизацией. Размеры: 36-45", stock: 50 },
-            2: { name: "Футболка Adidas Originals", price: 1990, old_price: 2990, desc: "Хлопковая футболка с принтом, отличное качество. Размеры: S-XXL", stock: 100 },
-            3: { name: "Рюкзак Puma Essential", price: 3490, old_price: 0, desc: "Водонепроницаемый рюкзак, 20 литров, удобные лямки", stock: 30 },
-            4: { name: "Часы Casio Classic", price: 2990, old_price: 3990, desc: "Классические наручные часы с хронографом, водонепроницаемые", stock: 15 },
-            5: { name: "Шапка Nike Therma", price: 1490, old_price: 0, desc: "Тёплая шапка с технологией сохранения тепла", stock: 40 },
-            6: { name: "Носки Adidas 3 пары", price: 590, old_price: 990, desc: "Спортивные носки, дышащий материал, 3 пары", stock: 120 }
-        };
+        let currentProduct = null;
         
-        const product = products[productId];
+        async function loadProduct() {
+            try {
+                const response = await fetch('products.json');
+                if (!response.ok) {
+                    throw new Error('Файл products.json не найден');
+                }
+                const products = await response.json();
+                currentProduct = products.find(p => p.id == productId);
+                
+                if (currentProduct) {
+                    renderProduct(currentProduct);
+                } else {
+                    document.getElementById('content').innerHTML = `
+                        <div class="product-image">❌</div>
+                        <div class="product-info">
+                            <h1 class="product-name">Товар не найден</h1>
+                            <a class="back-btn" href="#" onclick="tg.openLink('/'); return false;">◀️ Назад к товарам</a>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки:', error);
+                document.getElementById('content').innerHTML = `
+                    <div class="product-image">❌</div>
+                    <div class="product-info">
+                        <h1 class="product-name">Ошибка загрузки</h1>
+                        <div class="product-desc">Не удалось загрузить данные о товаре</div>
+                        <a class="back-btn" href="#" onclick="tg.openLink('/'); return false;">◀️ Назад к товарам</a>
+                    </div>
+                `;
+            }
+        }
         
-        if (product) {
+        function renderProduct(product) {
             // Формируем цену со скидкой
             let priceHtml = `<span class="product-price">${product.price} ₽</span>`;
             if (product.old_price && product.old_price > product.price) {
@@ -114,22 +156,29 @@
                             <span class="product-old-price">${product.old_price} ₽</span>`;
             }
             
+            // Наличие
+            let stockHtml = '';
+            if (product.stock > 0) {
+                stockHtml = `<div class="product-stock">✅ В наличии: ${product.stock} шт.</div>`;
+            } else {
+                stockHtml = `<div class="product-stock" style="color: #e74c3c;">❌ Нет в наличии</div>`;
+            }
+            
+            // Категория
+            let categoryHtml = '';
+            if (product.category && product.category !== 'Без категории') {
+                categoryHtml = `<div class="product-category">📁 ${product.category}</div>`;
+            }
+            
             document.getElementById('content').innerHTML = `
                 <div class="product-image">📦</div>
                 <div class="product-info">
-                    <h1 class="product-name">${product.name}</h1>
+                    <h1 class="product-name">${escapeHtml(product.name)}</h1>
                     <div>${priceHtml}</div>
-                    <div class="product-stock">✅ В наличии: ${product.stock} шт.</div>
-                    <div class="product-desc">${product.desc}</div>
+                    ${stockHtml}
+                    ${categoryHtml}
+                    <div class="product-desc">${escapeHtml(product.description)}</div>
                     <button class="add-to-cart" onclick="addToCart()">🛒 Добавить в корзину</button>
-                    <a class="back-btn" href="#" onclick="tg.openLink('/'); return false;">◀️ Назад к товарам</a>
-                </div>
-            `;
-        } else {
-            document.getElementById('content').innerHTML = `
-                <div class="product-image">❌</div>
-                <div class="product-info">
-                    <h1 class="product-name">Товар не найден</h1>
                     <a class="back-btn" href="#" onclick="tg.openLink('/'); return false;">◀️ Назад к товарам</a>
                 </div>
             `;
@@ -138,19 +187,35 @@
         function addToCart() {
             tg.showPopup({
                 title: '🛒 Добавлено в корзину',
-                message: `${product.name} добавлен в корзину!\n\nКоличество: 1 шт\nСумма: ${product.price} ₽`,
+                message: `${currentProduct.name} добавлен в корзину!\n\nСумма: ${currentProduct.price} ₽`,
                 buttons: [{type: 'ok'}]
             });
         }
         
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        loadProduct();
+        
         // Настраиваем главную кнопку
         tg.MainButton.setText("🛒 КОРЗИНА");
         tg.MainButton.onClick(() => {
-            tg.showPopup({
-                title: 'Корзина',
-                message: 'Товар добавлен в корзину! Оформите заказ через менеджера.',
-                buttons: [{type: 'ok'}]
-            });
+            if (currentProduct) {
+                tg.showPopup({
+                    title: 'Корзина',
+                    message: `Товар "${currentProduct.name}" готов к оформлению!\nСумма: ${currentProduct.price} ₽`,
+                    buttons: [{type: 'ok'}]
+                });
+            } else {
+                tg.showPopup({
+                    title: 'Корзина',
+                    message: 'Выберите товар для добавления',
+                    buttons: [{type: 'ok'}]
+                });
+            }
         });
         tg.MainButton.show();
     </script>
