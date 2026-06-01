@@ -3,57 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Товар</title>
+    <title>Товар - Магазин</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background: #f5f5f5;
         }
-
         .product-image {
-            width: 100%;
-            height: 300px;
-            object-fit: cover;
-            background: #e0e0e0;
-        }
-
-        .product-image-placeholder {
             width: 100%;
             height: 300px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 64px;
+            font-size: 80px;
+            color: white;
         }
-
         .product-info {
             padding: 20px;
             background: white;
             border-radius: 20px 20px 0 0;
             margin-top: -20px;
-            position: relative;
         }
-
         .product-name {
             font-size: 24px;
             font-weight: 700;
             margin-bottom: 10px;
         }
-
         .product-price {
             font-size: 28px;
             font-weight: 700;
             color: #e74c3c;
             margin-bottom: 10px;
         }
-
         .product-old-price {
             font-size: 16px;
             color: #999;
@@ -61,64 +48,19 @@
             margin-left: 10px;
             font-weight: normal;
         }
-
         .product-stock {
             font-size: 14px;
             color: #27ae60;
             margin-bottom: 15px;
-            padding: 8px 12px;
-            background: #e8f5e9;
-            border-radius: 10px;
-            display: inline-block;
         }
-
-        .product-stock.out {
-            background: #ffebee;
-            color: #e74c3c;
-        }
-
-        .product-category {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 15px;
-        }
-
-        .product-description {
+        .product-desc {
             font-size: 15px;
+            color: #666;
             line-height: 1.5;
-            color: #333;
             margin-bottom: 20px;
-            padding: 15px 0;
-            border-top: 1px solid #eee;
+            padding-bottom: 20px;
             border-bottom: 1px solid #eee;
         }
-
-        .quantity-selector {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-            padding: 15px 0;
-        }
-
-        .quantity-btn {
-            width: 44px;
-            height: 44px;
-            border-radius: 22px;
-            background: #f0f0f0;
-            border: none;
-            font-size: 20px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .quantity-value {
-            font-size: 18px;
-            font-weight: 600;
-            min-width: 40px;
-            text-align: center;
-        }
-
         .add-to-cart {
             width: 100%;
             padding: 16px;
@@ -131,169 +73,86 @@
             cursor: pointer;
             margin-bottom: 10px;
         }
-
-        .buy-now {
-            width: 100%;
-            padding: 14px;
-            background: #e74c3c;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
         .back-btn {
             display: block;
             text-align: center;
-            padding: 14px;
-            background: transparent;
             color: #667eea;
             text-decoration: none;
-            margin-top: 10px;
-        }
-
-        .loading, .error {
-            text-align: center;
-            padding: 50px;
-            font-size: 16px;
-        }
-
-        .error {
-            color: #e74c3c;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
-    <div id="content">
-        <div class="loading">Загрузка...</div>
-    </div>
+    <div id="content">Загрузка...</div>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
         tg.enableClosingConfirmation();
-
-        let product = null;
-        let quantity = 1;
-
-        // Получаем ID товара из URL
+        
         const urlParams = new URLSearchParams(window.location.search);
         const productId = urlParams.get('id');
-
-        async function loadProduct() {
-            try {
-                const response = await fetch(`/api/product/${productId}`);
-                product = await response.json();
-
-                if (!product) {
-                    document.getElementById('content').innerHTML = '<div class="error">❌ Товар не найден</div>';
-                    return;
-                }
-
-                renderProduct();
-            } catch (error) {
-                console.error('Ошибка загрузки товара:', error);
-                document.getElementById('content').innerHTML = '<div class="error">❌ Ошибка загрузки товара</div>';
-            }
-        }
-
-        function renderProduct() {
-            // Фото
-            let imageHtml = '';
-            if (product.photos && product.photos.length > 0) {
-                imageHtml = `<img class="product-image" src="${product.photos[0]}" alt="${product.name}">`;
-            } else {
-                imageHtml = `<div class="product-image-placeholder">📦</div>`;
-            }
-
-            // Цена со скидкой
+        
+        // База товаров (должна совпадать с index.html)
+        const products = {
+            1: { name: "Кроссовки Nike Air Max", price: 4990, old_price: 5990, desc: "Спортивные кроссовки с дышащим материалом и амортизацией. Размеры: 36-45", stock: 50 },
+            2: { name: "Футболка Adidas Originals", price: 1990, old_price: 2990, desc: "Хлопковая футболка с принтом, отличное качество. Размеры: S-XXL", stock: 100 },
+            3: { name: "Рюкзак Puma Essential", price: 3490, old_price: 0, desc: "Водонепроницаемый рюкзак, 20 литров, удобные лямки", stock: 30 },
+            4: { name: "Часы Casio Classic", price: 2990, old_price: 3990, desc: "Классические наручные часы с хронографом, водонепроницаемые", stock: 15 },
+            5: { name: "Шапка Nike Therma", price: 1490, old_price: 0, desc: "Тёплая шапка с технологией сохранения тепла", stock: 40 },
+            6: { name: "Носки Adidas 3 пары", price: 590, old_price: 990, desc: "Спортивные носки, дышащий материал, 3 пары", stock: 120 }
+        };
+        
+        const product = products[productId];
+        
+        if (product) {
+            // Формируем цену со скидкой
             let priceHtml = `<span class="product-price">${product.price} ₽</span>`;
             if (product.old_price && product.old_price > product.price) {
                 priceHtml = `<span class="product-price">${product.price} ₽</span>
                             <span class="product-old-price">${product.old_price} ₽</span>`;
             }
-
-            // Наличие
-            let stockHtml = '';
-            if (product.stock > 0) {
-                stockHtml = `<div class="product-stock">✅ В наличии: ${product.stock} шт.</div>`;
-            } else {
-                stockHtml = `<div class="product-stock out">❌ Нет в наличии</div>`;
-            }
-
-            // Категория
-            let categoryHtml = '';
-            if (product.category && product.category !== 'Без категории') {
-                categoryHtml = `<div class="product-category">📁 ${product.category}</div>`;
-            }
-
+            
             document.getElementById('content').innerHTML = `
-                ${imageHtml}
+                <div class="product-image">📦</div>
                 <div class="product-info">
                     <h1 class="product-name">${product.name}</h1>
                     <div>${priceHtml}</div>
-                    ${stockHtml}
-                    ${categoryHtml}
-                    <div class="product-description">${product.description}</div>
-                    <div class="quantity-selector">
-                        <button class="quantity-btn" onclick="changeQuantity(-1)">−</button>
-                        <span class="quantity-value" id="quantity-value">1</span>
-                        <button class="quantity-btn" onclick="changeQuantity(1)">+</button>
-                    </div>
+                    <div class="product-stock">✅ В наличии: ${product.stock} шт.</div>
+                    <div class="product-desc">${product.desc}</div>
                     <button class="add-to-cart" onclick="addToCart()">🛒 Добавить в корзину</button>
-                    <button class="buy-now" onclick="buyNow()">💳 Купить сейчас</button>
+                    <a class="back-btn" href="#" onclick="tg.openLink('/'); return false;">◀️ Назад к товарам</a>
+                </div>
+            `;
+        } else {
+            document.getElementById('content').innerHTML = `
+                <div class="product-image">❌</div>
+                <div class="product-info">
+                    <h1 class="product-name">Товар не найден</h1>
                     <a class="back-btn" href="#" onclick="tg.openLink('/'); return false;">◀️ Назад к товарам</a>
                 </div>
             `;
         }
-
-        function changeQuantity(delta) {
-            const newQty = quantity + delta;
-            if (newQty >= 1 && (!product.stock || newQty <= product.stock)) {
-                quantity = newQty;
-                document.getElementById('quantity-value').innerText = quantity;
-            }
+        
+        function addToCart() {
+            tg.showPopup({
+                title: '🛒 Добавлено в корзину',
+                message: `${product.name} добавлен в корзину!\n\nКоличество: 1 шт\nСумма: ${product.price} ₽`,
+                buttons: [{type: 'ok'}]
+            });
         }
-
-        async function addToCart() {
-            try {
-                const response = await fetch('/api/cart/add', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        product_id: product.id,
-                        quantity: quantity
-                    })
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    tg.showPopup({
-                        title: 'Успех',
-                        message: `✅ ${product.name} добавлен в корзину!`,
-                        buttons: [{type: 'ok'}]
-                    });
-                } else {
-                    tg.showPopup({
-                        title: 'Ошибка',
-                        message: result.error || 'Не удалось добавить товар',
-                        buttons: [{type: 'ok'}]
-                    });
-                }
-            } catch (error) {
-                console.error('Ошибка добавления в корзину:', error);
-            }
-        }
-
-        async function buyNow() {
-            await addToCart();
-            tg.openLink('/cart.html');
-        }
-
-        loadProduct();
+        
+        // Настраиваем главную кнопку
+        tg.MainButton.setText("🛒 КОРЗИНА");
+        tg.MainButton.onClick(() => {
+            tg.showPopup({
+                title: 'Корзина',
+                message: 'Товар добавлен в корзину! Оформите заказ через менеджера.',
+                buttons: [{type: 'ok'}]
+            });
+        });
+        tg.MainButton.show();
     </script>
 </body>
 </html>
