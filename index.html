@@ -31,6 +31,16 @@
             font-size: 14px;
             opacity: 0.9;
         }
+        .refresh-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
+        }
         .products-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -60,6 +70,12 @@
             justify-content: center;
             font-size: 48px;
             color: white;
+            object-fit: cover;
+        }
+        .product-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         .product-info {
             padding: 12px;
@@ -108,6 +124,7 @@
     <div class="header">
         <h1>🛍 МАГАЗИН</h1>
         <p>Лучшие товары по лучшим ценам</p>
+        <button class="refresh-btn" onclick="loadProducts(true)">🔄 Обновить</button>
     </div>
     <div id="products" class="products-grid">
         <div class="loading">Загрузка товаров...</div>
@@ -121,20 +138,37 @@
         
         let products = [];
         
-        async function loadProducts() {
+        async function loadProducts(showMessage = false) {
+            const container = document.getElementById('products');
+            container.innerHTML = '<div class="loading">Загрузка товаров...</div>';
+            
             try {
-                const response = await fetch('products.json');
+                // Получаем данные из API вашего сервера
+                const apiUrl = window.location.origin + '/api/products';
+                const response = await fetch(apiUrl);
+                
                 if (!response.ok) {
-                    throw new Error('Файл products.json не найден');
+                    throw new Error(`HTTP ${response.status}`);
                 }
+                
                 products = await response.json();
+                
+                if (showMessage) {
+                    tg.showPopup({
+                        title: 'Обновлено',
+                        message: `Загружено ${products.length} товаров`,
+                        buttons: [{type: 'ok'}]
+                    });
+                }
+                
                 renderProducts();
             } catch (error) {
                 console.error('Ошибка загрузки:', error);
-                document.getElementById('products').innerHTML = `
+                container.innerHTML = `
                     <div class="error">
                         ❌ Ошибка загрузки товаров<br>
-                        <small>Файл products.json не найден. Нажмите "Экспорт в JSON" в админ-панели.</small>
+                        <small>${error.message}</small><br><br>
+                        Убедитесь, что сервер запущен (порт 8080)
                     </div>
                 `;
             }
@@ -159,6 +193,12 @@
                     tg.openLink(`product.html?id=${product.id}`);
                 };
                 
+                // Фото
+                let imageHtml = '<div class="product-image">📦</div>';
+                if (product.photos && product.photos.length > 0) {
+                    imageHtml = `<div class="product-image"><img src="${product.photos[0]}" alt="${product.name}"></div>`;
+                }
+                
                 // Цена со скидкой
                 let priceHtml = `<span class="product-price">${product.price} ₽</span>`;
                 if (product.old_price && product.old_price > product.price) {
@@ -167,7 +207,7 @@
                 }
                 
                 card.innerHTML = `
-                    <div class="product-image">📦</div>
+                    ${imageHtml}
                     <div class="product-info">
                         <div class="product-name">${escapeHtml(product.name)}</div>
                         <div>${priceHtml}</div>
@@ -179,11 +219,13 @@
         }
         
         function escapeHtml(text) {
+            if (!text) return '';
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
         
+        // Загружаем товары при открытии
         loadProducts();
         
         // Настраиваем главную кнопку
