@@ -49,7 +49,6 @@
             font-size: 80px;
             color: white;
         }
-        /* Кнопки навигации */
         .carousel-btn {
             position: absolute;
             top: 50%;
@@ -67,16 +66,12 @@
             color: white;
             transition: background 0.2s;
         }
-        .carousel-btn:active {
-            background: rgba(0,0,0,0.8);
-        }
         .carousel-btn.prev {
             left: 10px;
         }
         .carousel-btn.next {
             right: 10px;
         }
-        /* Индикаторы */
         .carousel-dots {
             position: absolute;
             bottom: 10px;
@@ -99,7 +94,6 @@
             border-radius: 4px;
             background: white;
         }
-        /* Информация о товаре */
         .product-info {
             padding: 20px;
             background: white;
@@ -176,9 +170,6 @@
             font-weight: 600;
             margin-top: 10px;
         }
-        .back-btn:active {
-            background: #5a67d8;
-        }
         .loading, .error {
             text-align: center;
             padding: 50px;
@@ -187,7 +178,6 @@
         .error {
             color: #e74c3c;
         }
-        /* Счетчик фото */
         .photo-counter {
             position: absolute;
             top: 10px;
@@ -212,28 +202,60 @@
         
         const urlParams = new URLSearchParams(window.location.search);
         const productId = urlParams.get('id');
-        let products = [];
         let currentProduct = null;
         let currentPhotoIndex = 0;
-        let startX = 0;
-        let isDragging = false;
+        let isLoading = false;
+        
+        // Функция отправки запроса к боту
+        function sendToBot(action, data = {}) {
+            return new Promise((resolve, reject) => {
+                const requestData = { action, ...data };
+                requestData.initData = tg.initData;
+                
+                const handler = (event) => {
+                    try {
+                        const response = JSON.parse(event.data);
+                        resolve(response);
+                    } catch (e) {
+                        reject(e);
+                    }
+                    tg.offEvent('mainButtonClicked', handler);
+                };
+                
+                tg.onEvent('mainButtonClicked', handler);
+                tg.sendData(JSON.stringify(requestData));
+                
+                setTimeout(() => {
+                    tg.offEvent('mainButtonClicked', handler);
+                    reject(new Error('Timeout'));
+                }, 10000);
+            });
+        }
         
         async function loadProduct() {
+            if (isLoading) return;
+            isLoading = true;
+            
+            document.getElementById('content').innerHTML = '<div class="loading">Загрузка товара...</div>';
+            
             try {
-                const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
-                const response = await fetch(baseUrl + 'products.json?t=' + Date.now());
-                if (!response.ok) throw new Error('products.json не найден');
-                products = await response.json();
-                currentProduct = products.find(p => p.id == productId);
+                const response = await sendToBot('get_product', { product_id: parseInt(productId) });
                 
-                if (currentProduct) {
+                if (response.error) {
+                    throw new Error(response.error);
+                }
+                
+                if (response.success && response.product) {
+                    currentProduct = response.product;
                     renderProduct();
                 } else {
-                    document.getElementById('content').innerHTML = `<div class="error">❌ Товар не найден</div>`;
+                    throw new Error('Товар не найден');
                 }
             } catch (error) {
-                console.error('Ошибка:', error);
-                document.getElementById('content').innerHTML = `<div class="error">❌ Ошибка загрузки: ${error.message}</div>`;
+                console.error('Ошибка загрузки:', error);
+                document.getElementById('content').innerHTML = `<div class="error">❌ ${error.message}</div>`;
+            } finally {
+                isLoading = false;
             }
         }
         
@@ -290,7 +312,7 @@
                     <div class="product-category">📁 ${escapeHtml(currentProduct.category)}</div>
                     <div class="product-desc">${escapeHtml(currentProduct.description)}</div>
                     <button class="add-to-cart ${!inStock ? 'disabled' : ''}" ${!inStock ? 'disabled' : ''} onclick="addToCart()">🛒 Добавить в корзину</button>
-                    <button class="back-btn" onclick="goBack()">◀️ Назад к товарам</button>
+                    <button class="back-btn" onclick="tg.close()">◀️ Назад к товарам</button>
                 </div>
             `;
             
@@ -309,16 +331,8 @@
             function updateCarousel() {
                 const slideWidth = track.parentElement.clientWidth;
                 track.style.transform = `translateX(-${currentPhotoIndex * slideWidth}px)`;
-                
-                // Обновляем индикаторы
-                dots.forEach((dot, i) => {
-                    dot.classList.toggle('active', i === currentPhotoIndex);
-                });
-                
-                // Обновляем счетчик
-                if (counter) {
-                    counter.textContent = `${currentPhotoIndex + 1} / ${totalPhotos}`;
-                }
+                dots.forEach((dot, i) => dot.classList.toggle('active', i === currentPhotoIndex));
+                if (counter) counter.textContent = `${currentPhotoIndex + 1} / ${totalPhotos}`;
             }
             
             function nextPhoto() {
@@ -335,61 +349,53 @@
                 }
             }
             
-            // Обработчики кнопок
             prevBtn.addEventListener('click', prevPhoto);
             nextBtn.addEventListener('click', nextPhoto);
+            dots.forEach((dot, i) => dot.addEventListener('click', () => {
+                currentPhotoIndex = i;
+                updateCarousel();
+            }));
             
-            // Обработчики для точек
-            dots.forEach((dot, i) => {
-                dot.addEventListener('click', () => {
-                    currentPhotoIndex = i;
-                    updateCarousel();
-                });
-            });
-            
-            // Свайп для телефона
+            // Свайп
             let startX = 0;
-            track.addEventListener('touchstart', (e) => {
-                startX = e.touches[0].clientX;
-                isDragging = true;
-            });
-            
+            track.addEventListener('touchstart', (e) => startX = e.touches[0].clientX);
             track.addEventListener('touchmove', (e) => {
-                if (!isDragging) return;
                 const diff = e.touches[0].clientX - startX;
                 if (Math.abs(diff) > 50) {
-                    if (diff > 0) {
-                        prevPhoto();
-                    } else {
-                        nextPhoto();
-                    }
-                    isDragging = false;
+                    diff > 0 ? prevPhoto() : nextPhoto();
+                    startX = e.touches[0].clientX;
                 }
             });
             
-            track.addEventListener('touchend', () => {
-                isDragging = false;
-            });
-            
-            // Обновляем при изменении размера окна
-            window.addEventListener('resize', () => {
-                updateCarousel();
-            });
-            
+            window.addEventListener('resize', () => updateCarousel());
             updateCarousel();
         }
         
-        function goBack() {
-            // Закрываем Web App и возвращаемся в чат
-            tg.close();
-        }
-        
-        function addToCart() {
-            tg.showPopup({
-                title: '🛒 Добавлено в корзину',
-                message: `${currentProduct.name} добавлен в корзину!\nСумма: ${currentProduct.price} ₽`,
-                buttons: [{type: 'ok'}]
-            });
+        async function addToCart() {
+            if (currentProduct.stock <= 0) return;
+            
+            try {
+                const response = await sendToBot('add_to_cart', {
+                    product_id: currentProduct.id,
+                    quantity: 1
+                });
+                
+                if (response.success) {
+                    tg.showPopup({
+                        title: '🛒 Добавлено в корзину',
+                        message: `${currentProduct.name} добавлен в корзину!\nСумма: ${currentProduct.price} ₽`,
+                        buttons: [{type: 'ok'}]
+                    });
+                } else {
+                    throw new Error('Ошибка добавления');
+                }
+            } catch (error) {
+                tg.showPopup({
+                    title: 'Ошибка',
+                    message: 'Не удалось добавить товар в корзину',
+                    buttons: [{type: 'ok'}]
+                });
+            }
         }
         
         function escapeHtml(text) {
@@ -401,21 +407,22 @@
         
         loadProduct();
         
-        // Настраиваем главную кнопку
         tg.MainButton.setText("🛒 КОРЗИНА");
-        tg.MainButton.onClick(() => {
-            if (currentProduct) {
-                tg.showPopup({
-                    title: 'Корзина',
-                    message: `Товар "${currentProduct.name}" готов к оформлению!\nСумма: ${currentProduct.price} ₽`,
-                    buttons: [{type: 'ok'}]
-                });
-            } else {
-                tg.showPopup({
-                    title: 'Корзина',
-                    message: 'Выберите товар для добавления',
-                    buttons: [{type: 'ok'}]
-                });
+        tg.MainButton.onClick(async () => {
+            try {
+                const response = await sendToBot('get_cart');
+                if (response.success && response.cart && response.cart.items.length > 0) {
+                    let message = '🛒 ВАША КОРЗИНА:\n\n';
+                    response.cart.items.forEach(item => {
+                        message += `${item.name} x${item.quantity} = ${item.subtotal} ₽\n`;
+                    });
+                    message += `\n💰 ИТОГО: ${response.cart.total} ₽`;
+                    tg.showPopup({ title: 'Корзина', message, buttons: [{type: 'ok'}] });
+                } else {
+                    tg.showPopup({ title: 'Корзина', message: 'Ваша корзина пуста', buttons: [{type: 'ok'}] });
+                }
+            } catch (error) {
+                tg.showPopup({ title: 'Ошибка', message: 'Не удалось загрузить корзину', buttons: [{type: 'ok'}] });
             }
         });
         tg.MainButton.show();
