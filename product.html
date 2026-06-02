@@ -5,89 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Товар - Магазин</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: #f5f5f5;
-        }
-        .product-image {
-            width: 100%;
-            height: 300px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 80px;
-            color: white;
-            overflow: hidden;
-        }
-        .product-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .product-info {
-            padding: 20px;
-            background: white;
-            border-radius: 20px 20px 0 0;
-            margin-top: -20px;
-        }
-        .product-name {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
-        .product-price {
-            font-size: 28px;
-            font-weight: 700;
-            color: #e74c3c;
-            margin-bottom: 10px;
-        }
-        .product-stock {
-            font-size: 14px;
-            margin-bottom: 15px;
-        }
-        .in-stock {
-            color: #27ae60;
-        }
-        .out-of-stock {
-            color: #e74c3c;
-        }
-        .product-category {
-            font-size: 14px;
-            color: #8b5cf6;
-            margin-bottom: 10px;
-        }
-        .product-desc {
-            font-size: 15px;
-            color: #666;
-            line-height: 1.5;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #eee;
-        }
-        .back-btn {
-            display: block;
-            text-align: center;
-            background: #667eea;
-            color: white;
-            text-decoration: none;
-            padding: 12px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 600;
-            margin-top: 10px;
-            cursor: pointer;
-        }
-        .loading, .error {
-            text-align: center;
-            padding: 50px;
-            color: #666;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f5f5f5; }
+        .product-image { width: 100%; height: 300px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; font-size: 80px; color: white; }
+        .product-info { padding: 20px; background: white; border-radius: 20px 20px 0 0; margin-top: -20px; }
+        .product-name { font-size: 24px; font-weight: 700; margin-bottom: 10px; }
+        .product-price { font-size: 28px; font-weight: 700; color: #e74c3c; margin-bottom: 10px; }
+        .product-desc { font-size: 15px; color: #666; line-height: 1.5; margin-bottom: 20px; }
+        .back-btn { display: block; text-align: center; background: #667eea; color: white; text-decoration: none; padding: 12px; border-radius: 12px; margin-top: 10px; cursor: pointer; }
+        .loading { text-align: center; padding: 50px; color: #666; }
     </style>
 </head>
 <body>
@@ -101,7 +27,6 @@
         const urlParams = new URLSearchParams(window.location.search);
         const productId = urlParams.get('id');
         
-        // Загружаем данные через бота
         tg.sendData(JSON.stringify({ action: 'get_product', product_id: parseInt(productId) }));
         
         window.addEventListener('message', function(event) {
@@ -109,43 +34,20 @@
                 const data = JSON.parse(event.data);
                 if (data.success && data.product) {
                     renderProduct(data.product);
-                } else if (data.error) {
-                    showError(data.error);
                 }
             } catch (e) {}
         });
         
         function renderProduct(product) {
-            const inStock = product.stock > 0;
-            const photoUrl = `photos/${product.id}/1.jpg`;
-            
             document.getElementById('content').innerHTML = `
-                <div class="product-image">
-                    <img src="${photoUrl}" alt="${escapeHtml(product.name)}" 
-                         onerror="this.parentElement.innerHTML='📦';this.parentElement.style.fontSize='80px'">
-                </div>
+                <div class="product-image">📦</div>
                 <div class="product-info">
-                    <h1 class="product-name">${escapeHtml(product.name)}</h1>
+                    <h1 class="product-name">${product.name}</h1>
                     <div class="product-price">${product.price} ₽</div>
-                    <div class="product-stock ${inStock ? 'in-stock' : 'out-of-stock'}">
-                        ${inStock ? `✅ В наличии: ${product.stock} шт.` : '❌ Нет в наличии'}
-                    </div>
-                    <div class="product-category">📁 ${escapeHtml(product.category)}</div>
-                    <div class="product-desc">${escapeHtml(product.description)}</div>
-                    <div class="back-btn" onclick="tg.close()">◀️ Назад</div>
+                    <div class="product-desc">${product.description}</div>
+                    <div class="back-btn" onclick="tg.close()">◀️ Назад к товарам</div>
                 </div>
             `;
-        }
-        
-        function showError(error) {
-            document.getElementById('content').innerHTML = `<div class="error">❌ ${escapeHtml(error)}</div>`;
-        }
-        
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
         }
     </script>
 </body>
