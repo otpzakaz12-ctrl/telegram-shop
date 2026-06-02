@@ -79,13 +79,6 @@
             font-weight: 700;
             color: #e74c3c;
         }
-        .product-old-price {
-            font-size: 11px;
-            color: #999;
-            text-decoration: line-through;
-            margin-left: 6px;
-            font-weight: normal;
-        }
         .loading, .error {
             text-align: center;
             padding: 40px;
@@ -94,11 +87,6 @@
         }
         .error {
             color: #e74c3c;
-        }
-        @media (max-width: 480px) {
-            .product-image {
-                height: 140px;
-            }
         }
     </style>
 </head>
@@ -117,72 +105,27 @@
         tg.expand();
         tg.enableClosingConfirmation();
         
-        let products = [];
-        let isLoading = false;
+        // Отправляем запрос к боту для получения товаров
+        tg.sendData(JSON.stringify({ action: 'get_products' }));
         
-        // Функция отправки запроса к боту
-        function sendToBot(action, data = {}) {
-            return new Promise((resolve, reject) => {
-                const requestData = { action, ...data };
-                
-                // Добавляем initData для авторизации
-                requestData.initData = tg.initData;
-                
-                // Устанавливаем обработчик ответа
-                const handler = (event) => {
-                    if (event.eventType === 'popupClosed') return;
-                    try {
-                        const response = JSON.parse(event.data);
-                        resolve(response);
-                    } catch (e) {
-                        reject(e);
-                    }
-                    tg.offEvent('mainButtonClicked', handler);
-                };
-                
-                tg.onEvent('mainButtonClicked', handler);
-                
-                // Отправляем запрос через WebApp
-                tg.sendData(JSON.stringify(requestData));
-                
-                // Таймаут на случай ошибки
-                setTimeout(() => {
-                    tg.offEvent('mainButtonClicked', handler);
-                    reject(new Error('Timeout waiting for response'));
-                }, 10000);
-            });
-        }
+        // Обработка ответа от бота
+        tg.onEvent('mainButtonClicked', () => {});
         
-        // Загрузка товаров
-        async function loadProducts() {
-            if (isLoading) return;
-            isLoading = true;
-            
-            const container = document.getElementById('products');
-            container.innerHTML = '<div class="loading">Загрузка товаров...</div>';
-            
+        // Функция для обработки входящих данных
+        window.addEventListener('message', function(event) {
             try {
-                const response = await sendToBot('get_products');
-                
-                if (response.error) {
-                    throw new Error(response.error);
+                const data = JSON.parse(event.data);
+                if (data.success && data.products) {
+                    renderProducts(data.products);
+                } else if (data.error) {
+                    showError(data.error);
                 }
-                
-                if (response.success && response.products) {
-                    products = response.products;
-                    renderProducts();
-                } else {
-                    throw new Error('Неверный формат ответа');
-                }
-            } catch (error) {
-                console.error('Ошибка загрузки:', error);
-                container.innerHTML = `<div class="error">❌ Ошибка загрузки товаров<br><small>${error.message}</small></div>`;
-            } finally {
-                isLoading = false;
+            } catch (e) {
+                // Игнорируем не-JSON сообщения
             }
-        }
+        });
         
-        function renderProducts() {
+        function renderProducts(products) {
             const container = document.getElementById('products');
             
             if (!products || products.length === 0) {
@@ -193,11 +136,9 @@
             container.innerHTML = '';
             
             products.forEach(product => {
-                const card = document.createElement('a');
+                const card = document.createElement('div');
                 card.className = 'product-card';
-                card.href = `product.html?id=${product.id}`;
-                card.onclick = (e) => {
-                    e.preventDefault();
+                card.onclick = () => {
                     tg.openLink(`product.html?id=${product.id}`);
                 };
                 
@@ -207,10 +148,10 @@
                     imageHtml = `<div class="product-image"><img src="${product.photos[0]}" alt="${product.name}" loading="lazy" onerror="this.parentElement.innerHTML='📦';this.parentElement.style.fontSize='48px'"></div>`;
                 }
                 
-                // Цена со скидкой
+                // Цена
                 let priceHtml = `<span class="product-price">${product.price} ₽</span>`;
                 if (product.old_price && product.old_price > product.price) {
-                    priceHtml = `<span class="product-price">${product.price} ₽</span><span class="product-old-price">${product.old_price} ₽</span>`;
+                    priceHtml = `<span class="product-price">${product.price} ₽</span>`;
                 }
                 
                 card.innerHTML = `
@@ -224,6 +165,10 @@
             });
         }
         
+        function showError(error) {
+            document.getElementById('products').innerHTML = `<div class="error">❌ Ошибка: ${escapeHtml(error)}</div>`;
+        }
+        
         function escapeHtml(text) {
             if (!text) return '';
             const div = document.createElement('div');
@@ -231,39 +176,14 @@
             return div.innerHTML;
         }
         
-        // Загружаем товары при открытии
-        loadProducts();
-        
         // Настраиваем главную кнопку
         tg.MainButton.setText("🛒 КОРЗИНА");
-        tg.MainButton.onClick(async () => {
-            try {
-                const response = await sendToBot('get_cart');
-                if (response.success && response.cart && response.cart.items.length > 0) {
-                    let message = '🛒 ВАША КОРЗИНА:\n\n';
-                    response.cart.items.forEach(item => {
-                        message += `${item.name} x${item.quantity} = ${item.subtotal} ₽\n`;
-                    });
-                    message += `\n💰 ИТОГО: ${response.cart.total} ₽`;
-                    tg.showPopup({
-                        title: 'Корзина',
-                        message: message,
-                        buttons: [{type: 'ok'}]
-                    });
-                } else {
-                    tg.showPopup({
-                        title: 'Корзина',
-                        message: 'Ваша корзина пуста',
-                        buttons: [{type: 'ok'}]
-                    });
-                }
-            } catch (error) {
-                tg.showPopup({
-                    title: 'Ошибка',
-                    message: 'Не удалось загрузить корзину',
-                    buttons: [{type: 'ok'}]
-                });
-            }
+        tg.MainButton.onClick(() => {
+            tg.showPopup({
+                title: 'Корзина',
+                message: 'Нажмите на товар, чтобы добавить в корзину',
+                buttons: [{type: 'ok'}]
+            });
         });
         tg.MainButton.show();
     </script>
